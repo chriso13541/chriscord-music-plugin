@@ -65,28 +65,29 @@ can use it; the buttons that change what's playing need you to be in its
 call.
 
 **Commands.** Type them in the message box of a text channel:
-`music::play never gonna give you up`. As you type, the app suggests the
-commands, then each one's arguments, and colours the command. Tab or Enter
-picks a suggestion. The command goes to the plugin end-to-end encrypted, and
+`/music play never gonna give you up`. Type `/` and the app lists the
+plugins; then their commands, then each one's arguments, and colours the
+command. Tab or Enter picks a suggestion (Enter only sends once there's
+nothing left to pick); Esc closes the list. The command goes to the plugin end-to-end encrypted, and
 is posted in the channel as your message, so everyone there sees what was
 asked. What everyone should know, like "Queued …", the plugin announces in
 the channel: shown there marked as the plugin's, but not a chat message (it
 isn't kept in the channel's history). Problems and answers for you alone,
-like `music::queue`, show only to you.
+like `/music queue`, show only to you.
 
 | Command | What it does |
 |---|---|
-| `music::play <link or search>` | Joins your call and plays it, or adds it to the queue |
-| `music::search <words>`, then `music::pick <n>` | Choose from the top results |
-| `music::np` | What's playing now |
-| `music::pause`, `music::resume` | Pause and carry on |
-| `music::skip` | Next track |
-| `music::queue` | What's playing and what's next |
-| `music::remove <n>` | Take a track out of the queue |
-| `music::clear` | Empty the queue |
-| `music::stop` | Stop and clear the queue |
-| `music::leave` | Leave the call |
-| `music::help` | All the commands |
+| `/music play <link or search>` | Joins your call and plays it, or adds it to the queue |
+| `/music search <words>`, then `/music pick <n>` | Choose from the top results |
+| `/music np` | What's playing now |
+| `/music pause`, `/music resume` | Pause and carry on |
+| `/music skip` | Next track |
+| `/music queue` | What's playing and what's next |
+| `/music remove <n>` | Take a track out of the queue |
+| `/music clear` | Empty the queue |
+| `/music stop` | Stop and clear the queue |
+| `/music leave` | Leave the call |
+| `/music help` | All the commands |
 
 The old chat commands (`!play`) work too, with **Chat commands too** turned
 on in its settings — but then the plugin has to read the text channel, so
@@ -176,5 +177,5 @@ pretend member who types the commands and listens. It checks that:
 - the audio reaching the call decrypts with the key the plugin gave her,
   at real-time pace;
 - the commands, the queue, and leaving when alone all work;
-- the app's side works too: `music::` commands, answers only she sees, and
+- the app's side works too: `/music` commands, answers only she sees, and
   the panel (what's playing, its buttons, its box, taking a track out).

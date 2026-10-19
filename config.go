@@ -32,7 +32,7 @@ type config struct {
 	Token        string        // the plugin's bot token (from the server)
 	DataDir      string        // where it keeps yt-dlp, downloads (from the server)
 	CodeDir      string        // its own folder (pfp.png can ship there)
-	PluginID     string        // its id here: commands are typed as <id>::play
+	PluginID     string        // its id here: commands are typed as /<id> play
 	TextCommands bool          // text_commands — also take !play etc. as chat messages
 	Prefix       string        // prefix — what those chat commands start with
 	AloneAfter   time.Duration // alone_minutes — leave after sitting alone this long

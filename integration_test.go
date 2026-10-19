@@ -852,13 +852,13 @@ func TestBot(t *testing.T) {
 	a.say(t, text, "!play "+mediaURL+"/tone1.mp3")
 	a.expect(t, "Join a voice channel first", 10*time.Second)
 
-	// The same from the app (music::play), on her lane: the answer is just
+	// The same from the app (/music play), on her lane: the answer is just
 	// for her; and the panel for everyone says it's not in a call.
 	m.expectUI(t, "", `"blocks"|Not in a call|"action":"add"`, 10*time.Second)
 	id := m.app("plugin_command", map[string]interface{}{"board_id": text, "command": "play", "args": map[string]string{"query": mediaURL + "/tone1.mp3"}})
 	m.expectUI(t, id, "Join a voice channel first", 10*time.Second)
 	id = m.app("plugin_command", map[string]interface{}{"board_id": text, "command": "help", "args": map[string]string{}})
-	m.expectUI(t, id, "music::play <link or words>", 10*time.Second)
+	m.expectUI(t, id, "/music play <link or words>", 10*time.Second)
 
 	// Alice joins voice; then !play.
 	a.call.begin(voiceA, "alice")

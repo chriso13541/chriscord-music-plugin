@@ -2,7 +2,7 @@ package main
 
 // commands.go — what people can ask for, however they ask:
 //
-//   - typed in the message box as music::play <song> (the app suggests the
+//   - typed in the message box as /music play <song> (the app suggests the
 //     commands and sends them straight to the plugin: pluginui.go);
 //   - clicked in the Music panel (pluginui.go);
 //   - typed as a chat message, !play <song> — only with the "Text commands"
@@ -56,7 +56,7 @@ type req struct {
 	say func(string)
 	// tell tells just them (problems, and answers only they asked for).
 	tell func(string)
-	// how commands are written, for hints: "music::" or "!"
+	// how commands are written, for hints: "/music " or "!"
 	prefix string
 }
 

@@ -1,7 +1,7 @@
 package main
 
 // pluginui.go — the plugin's part of the app: the commands people type in
-// the message box (music::play …) and the Music panel in the plugins area.
+// the message box (/music play …) and the Music panel in the plugins area.
 //
 // Both come on lanes (the SDK's OnLaneOpen and OnLane): each member's app
 // opens one to the plugin, end-to-end encrypted, so the server passes them
@@ -66,19 +66,19 @@ func (b *Bot) onEvent(e chriscordbot.Event) {
 	if ev.Type == "plugin_command" {
 		cmd := strings.ToLower(ev.Command)
 		arg := strings.TrimSpace(ev.Args[commandArg[cmd]])
-		logf("app: %s: %s::%s %s", ev.User, b.cfg.PluginID, cmd, arg)
+		logf("app: %s: /%s %s %s", ev.User, b.cfg.PluginID, cmd, arg)
 		// What everyone should know goes in the channel it was typed in,
 		// with who asked; problems and answers only go to them.
 		board := ev.BoardID
 		say := func(text string) { b.say(board, text+" — "+ev.User) }
-		b.run(cmd, arg, req{user: ev.User, board: board, say: say, tell: tell, prefix: b.cfg.PluginID + "::"})
+		b.run(cmd, arg, req{user: ev.User, board: board, say: say, tell: tell, prefix: "/" + b.cfg.PluginID + " "})
 	} else {
 		value := ""
 		if ev.Value != nil {
 			value = strings.TrimSpace(*ev.Value)
 		}
 		logf("panel: %s: %s %s", ev.User, ev.Action, value)
-		b.action(ev.Action, value, req{user: ev.User, tell: tell, prefix: b.cfg.PluginID + "::"})
+		b.action(ev.Action, value, req{user: ev.User, tell: tell, prefix: "/" + b.cfg.PluginID + " "})
 	}
 	b.ui.poke()
 }
@@ -120,7 +120,7 @@ func (b *Bot) onLane(s *chriscordbot.LaneSession, raw json.RawMessage) {
 	case "command":
 		cmd := strings.ToLower(m.Command)
 		arg := strings.TrimSpace(m.Args[commandArg[cmd]])
-		logf("app: %s: %s::%s %s", who, b.cfg.PluginID, cmd, arg)
+		logf("app: %s: /%s %s %s", who, b.cfg.PluginID, cmd, arg)
 		board := m.Board
 		// What everyone should know is announced in the channel it was
 		// typed in, with who asked.
@@ -131,10 +131,10 @@ func (b *Bot) onLane(s *chriscordbot.LaneSession, raw json.RawMessage) {
 			}
 			b.say(board, text+" — "+who)
 		}
-		b.run(cmd, arg, req{user: who, board: board, say: say, tell: tell, prefix: b.cfg.PluginID + "::"})
+		b.run(cmd, arg, req{user: who, board: board, say: say, tell: tell, prefix: "/" + b.cfg.PluginID + " "})
 	case "action":
 		logf("panel: %s: %s %s", who, m.Action, m.Value)
-		b.action(m.Action, strings.TrimSpace(m.Value), req{user: who, tell: tell, prefix: b.cfg.PluginID + "::"})
+		b.action(m.Action, strings.TrimSpace(m.Value), req{user: who, tell: tell, prefix: "/" + b.cfg.PluginID + " "})
 	default:
 		return // a ping
 	}
@@ -280,7 +280,7 @@ func (b *Bot) panel(inCall bool) (panel, progress map[string]interface{}, elapse
 	if !inCall {
 		return map[string]interface{}{"blocks": []interface{}{
 			map[string]interface{}{"type": "text", "style": "muted",
-				"text": "Not in a call. Join a voice channel it can play in, then add something — or type " + b.cfg.PluginID + "::play in a channel."},
+				"text": "Not in a call. Join a voice channel it can play in, then add something — or type /" + b.cfg.PluginID + " play in a channel."},
 			add,
 		}}, nil, 0, false
 	}

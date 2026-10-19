@@ -2,8 +2,8 @@
   "manifest": 1,
   "id": "music",
   "name": "Music",
-  "version": "1.1.0",
-  "description": "Plays music from YouTube, SoundCloud, Bandcamp and other links in voice channels. Type music::play <link or search> in a channel it can read, or use its panel; it joins your call with its own encrypted audio.",
+  "version": "1.3.1",
+  "description": "Plays music from YouTube, SoundCloud, Bandcamp and other links in voice channels. Type /music play <link or search> in a channel it can read, or use its panel; it joins your call with its own encrypted audio.",
   "author": "Chriscord",
   "homepage": "https://github.com/chriso13541/chriscord-music-plugin",
   "run": {
@@ -124,7 +124,7 @@
       "label": "Chat commands too",
       "type": "bool",
       "default": false,
-      "help": "Also take commands typed as chat messages, like !play (the old way). music:: commands and the panel work either way"
+      "help": "Also take commands typed as chat messages, like !play (the old way). /music commands and the panel work either way"
     },
     {
       "key": "prefix",
