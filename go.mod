@@ -5,7 +5,6 @@ go 1.24.7
 require (
 	github.com/chriso13541/chriscord-bot-sdk v0.2.1
 	github.com/gorilla/websocket v1.5.3
-	github.com/pion/interceptor v0.1.49
 	github.com/pion/rtp v1.10.5
 	github.com/pion/webrtc/v3 v3.3.6
 	golang.org/x/crypto v0.43.0
@@ -16,6 +15,7 @@ require (
 	github.com/pion/datachannel v1.5.8 // indirect
 	github.com/pion/dtls/v2 v2.2.12 // indirect
 	github.com/pion/ice/v2 v2.3.38 // indirect
+	github.com/pion/interceptor v0.1.49 // indirect
 	github.com/pion/logging v0.2.4 // indirect
 	github.com/pion/mdns v0.0.12 // indirect
 	github.com/pion/randutil v0.1.0 // indirect
