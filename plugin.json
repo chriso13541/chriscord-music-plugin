@@ -1,0 +1,234 @@
+{
+  "manifest": 1,
+  "id": "music",
+  "name": "Music",
+  "version": "1.1.0",
+  "description": "Plays music from YouTube, SoundCloud, Bandcamp and other links in voice channels. Type music::play <link or search> in a channel it can read, or use its panel; it joins your call with its own encrypted audio.",
+  "author": "Chriscord",
+  "homepage": "https://github.com/chriso13541/chriscord-music-plugin",
+  "run": {
+    "linux-x86_64": [
+      "bin/music-linux-amd64"
+    ],
+    "linux-aarch64": [
+      "bin/music-linux-arm64"
+    ],
+    "macos-x86_64": [
+      "bin/music-macos-amd64"
+    ],
+    "macos-aarch64": [
+      "bin/music-macos-arm64"
+    ]
+  },
+  "permissions": [
+    "view_channels",
+    "connect",
+    "speak"
+  ],
+  "internet": true,
+  "lanes": true,
+  "channels": "Pick the voice channels it may play in. It doesn't need text channels: its commands and announcements go end-to-end encrypted between members' apps and the plugin. Only if you turn on text commands (!play typed as a chat message) does it need to read a text channel — and then the server's signed member list has to let it.",
+  "panel": {
+    "title": "Music",
+    "icon": "music_note"
+  },
+  "commands": [
+    {
+      "name": "play",
+      "description": "Join your voice channel and play a link, or the top YouTube result — or queue it",
+      "args": [
+        {
+          "name": "query",
+          "type": "text",
+          "required": true,
+          "description": "A link (YouTube, SoundCloud, Bandcamp, a playlist…) or words to search for"
+        }
+      ]
+    },
+    {
+      "name": "search",
+      "description": "The top 10 YouTube results, to pick from",
+      "args": [
+        {
+          "name": "words",
+          "type": "text",
+          "required": true,
+          "description": "What to search for"
+        }
+      ]
+    },
+    {
+      "name": "pick",
+      "description": "Play one of your search results",
+      "args": [
+        {
+          "name": "number",
+          "type": "number",
+          "required": true,
+          "description": "Its number in the results"
+        }
+      ]
+    },
+    {
+      "name": "pause",
+      "description": "Pause"
+    },
+    {
+      "name": "resume",
+      "description": "Carry on playing"
+    },
+    {
+      "name": "skip",
+      "description": "Skip to the next track"
+    },
+    {
+      "name": "queue",
+      "description": "What's playing and what's next (just for you)"
+    },
+    {
+      "name": "np",
+      "description": "What's playing now (just for you)"
+    },
+    {
+      "name": "remove",
+      "description": "Take a track out of the queue",
+      "args": [
+        {
+          "name": "number",
+          "type": "number",
+          "required": true,
+          "description": "Its number in the queue"
+        }
+      ]
+    },
+    {
+      "name": "clear",
+      "description": "Empty the queue (the current track keeps playing)"
+    },
+    {
+      "name": "stop",
+      "description": "Stop playing and empty the queue"
+    },
+    {
+      "name": "leave",
+      "description": "Leave the call"
+    },
+    {
+      "name": "help",
+      "description": "All the commands"
+    }
+  ],
+  "settings": [
+    {
+      "key": "text_commands",
+      "label": "Chat commands too",
+      "type": "bool",
+      "default": false,
+      "help": "Also take commands typed as chat messages, like !play (the old way). music:: commands and the panel work either way"
+    },
+    {
+      "key": "prefix",
+      "label": "Chat command prefix",
+      "type": "text",
+      "default": "!",
+      "help": "With chat commands on: what they start with, e.g. !play"
+    },
+    {
+      "key": "volume_percent",
+      "label": "Volume (%)",
+      "type": "number",
+      "default": 50,
+      "min": 1,
+      "max": 200,
+      "help": "One volume for everyone; each listener can still turn it down for themselves"
+    },
+    {
+      "key": "bitrate_kbps",
+      "label": "Audio bitrate (kbps)",
+      "type": "number",
+      "default": 96,
+      "min": 16,
+      "max": 256
+    },
+    {
+      "key": "stereo",
+      "label": "Stereo",
+      "type": "bool",
+      "default": false,
+      "help": "Off sends mono, like voices"
+    },
+    {
+      "key": "audio_format",
+      "label": "Download format",
+      "type": "choice",
+      "default": "best",
+      "choices": [
+        "best",
+        "mp3"
+      ],
+      "help": "best keeps the site's own audio (no re-encode)"
+    },
+    {
+      "key": "max_queue",
+      "label": "Most tracks queued",
+      "type": "number",
+      "default": 200,
+      "min": 1,
+      "max": 5000
+    },
+    {
+      "key": "max_playlist",
+      "label": "Most tracks from one playlist",
+      "type": "number",
+      "default": 50,
+      "min": 1,
+      "max": 1000
+    },
+    {
+      "key": "max_length_minutes",
+      "label": "Longest track (minutes)",
+      "type": "number",
+      "default": 180,
+      "min": 0,
+      "max": 1440,
+      "help": "0 = no limit"
+    },
+    {
+      "key": "alone_minutes",
+      "label": "Leave when alone after (minutes)",
+      "type": "number",
+      "default": 5,
+      "min": 0.5,
+      "max": 1440
+    },
+    {
+      "key": "ytdlp_check_hours",
+      "label": "Check for a new yt-dlp every (hours)",
+      "type": "number",
+      "default": 24,
+      "min": 1,
+      "max": 720
+    },
+    {
+      "key": "ytdlp_args",
+      "label": "Extra yt-dlp arguments",
+      "type": "text",
+      "default": "",
+      "help": "e.g. --cookies cookies.txt (a file in the plugin's data folder) for sites that need you signed in"
+    },
+    {
+      "key": "ytdlp",
+      "label": "yt-dlp to use",
+      "type": "text",
+      "default": "",
+      "help": "Empty: it keeps its own up to date. A path: use that one instead (not updated)"
+    },
+    {
+      "key": "ffmpeg",
+      "label": "FFmpeg to use",
+      "type": "text",
+      "default": "",
+      "help": "Empty: ffmpeg from the server's PATH"
+    }
+  ]
+}

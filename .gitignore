@@ -1,0 +1,15 @@
+# Built
+/dist/
+/chriscord-music-plugin
+*.exe
+
+# If you run it by hand in this folder
+/bin/
+/downloads/
+cookies.txt
+
+# Editors / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
