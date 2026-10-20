@@ -45,7 +45,6 @@ type config struct {
 	Volume       float64       // volume_percent / 100 — 1.0 = as downloaded
 	MaxQueue     int           // max_queue — most tracks waiting at once
 	MaxPlaylist  int           // max_playlist — most tracks one playlist link adds
-	MaxLength    time.Duration // max_length_minutes — longest track it'll play (0 = no limit)
 	YtdlpArgs    []string      // ytdlp_args — extra yt-dlp arguments (e.g. --cookies cookies.txt)
 }
 
@@ -117,7 +116,6 @@ func configFrom(h hello) (config, error) {
 		Volume:       s.number("volume_percent", 50) / 100,
 		MaxQueue:     int(s.number("max_queue", 200)),
 		MaxPlaylist:  int(s.number("max_playlist", 50)),
-		MaxLength:    minutes(s.number("max_length_minutes", 180)),
 		AloneAfter:   minutes(s.number("alone_minutes", 5)),
 		YtdlpEvery:   time.Duration(s.number("ytdlp_check_hours", 24) * float64(time.Hour)),
 		YtdlpArgs:    strings.Fields(s.text("ytdlp_args", "")),

@@ -282,7 +282,6 @@ func (b *Bot) cmdPlay(r req, arg string) {
 	playlist := found.kind == linkPlaylist || found.kind == linkRadio
 	var ts []*track
 	skipped := found.skipped
-	tooLong := 0
 	board := r.board
 	if board == "" { // from the panel: where it was last asked to play
 		b.mu.Lock()
@@ -290,14 +289,10 @@ func (b *Bot) cmdPlay(r req, arg string) {
 		b.mu.Unlock()
 	}
 	for _, in := range infos {
-		if !in.Live && b.cfg.MaxLength > 0 && in.Duration > b.cfg.MaxLength {
-			tooLong++
-			continue
-		}
 		ts = append(ts, &track{trackInfo: in, requester: r.user, board: board})
 	}
 	if len(ts) == 0 {
-		r.no("That's longer than the %s limit.", clockTime(b.cfg.MaxLength))
+		r.no("Nothing to play there.")
 		return
 	}
 
@@ -347,9 +342,6 @@ func (b *Bot) cmdPlay(r req, arg string) {
 		var notes []string
 		if skipped > 0 {
 			notes = append(notes, fmt.Sprintf("%d unavailable", skipped))
-		}
-		if tooLong > 0 {
-			notes = append(notes, fmt.Sprintf("%d too long", tooLong))
 		}
 		if added < len(ts) {
 			notes = append(notes, fmt.Sprintf("only %d fit in the queue", added))

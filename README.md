@@ -104,7 +104,7 @@ plugin.
 - chat commands (`!play`) on or off, and their prefix;
 - volume, bitrate, mono or stereo;
 - download format;
-- queue, playlist and track-length limits;
+- queue and playlist limits;
 - how long it waits alone before leaving;
 - how often it checks for a new yt-dlp;
 - extra yt-dlp arguments;

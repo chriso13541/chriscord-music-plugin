@@ -129,7 +129,9 @@ func (p *player) startDownload(t *track) {
 			close(t.dlDone)
 			return
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
+		// Long enough for a long video (an hours-long mix downloads slower
+		// than a song): 15 minutes, plus as long again as it plays.
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute+t.Duration)
 		t.cancel = cancel
 		go func() {
 			defer p.prefetch() // done: the one up next can start

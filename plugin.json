@@ -185,15 +185,6 @@
       "max": 1000
     },
     {
-      "key": "max_length_minutes",
-      "label": "Longest track (minutes)",
-      "type": "number",
-      "default": 180,
-      "min": 0,
-      "max": 1440,
-      "help": "0 = no limit"
-    },
-    {
       "key": "alone_minutes",
       "label": "Leave when alone after (minutes)",
       "type": "number",

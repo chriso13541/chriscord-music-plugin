@@ -282,7 +282,9 @@ var errLive = errors.New("live stream")
 // from scratch on every run, which usually gets past it, so a failed
 // download is tried twice more, a few seconds apart.
 func (y *ytdlp) download(ctx context.Context, u, dir string) (string, error) {
-	args := []string{"--no-playlist", "-f", "bestaudio/best", "--max-filesize", "500M",
+	// --max-filesize only guards the disk against something absurd: 4 GB is
+	// a day or more of audio (500M stopped videos past about 7 hours).
+	args := []string{"--no-playlist", "-f", "bestaudio/best", "--max-filesize", "4G",
 		"--match-filter", "!is_live & live_status!=?is_upcoming",
 		"--retries", "5", "--fragment-retries", "5", "--extractor-retries", "3",
 		"-o", filepath.Join(dir, "%(id)s.%(ext)s"), "--print", "after_move:filepath"}

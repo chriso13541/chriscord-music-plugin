@@ -1152,7 +1152,7 @@ func TestBotYouTube(t *testing.T) {
 	a := newAlice(t, m)
 	cfg := config{ServerURL: m.srv.URL, Token: testToken(t), DataDir: filepath.Join(work, "bot"), Prefix: "!",
 		AloneAfter: time.Minute, YtdlpEvery: time.Hour, YtdlpPath: fake, FFmpeg: "ffmpeg",
-		AudioFormat: "best", Bitrate: "96k", Channels: 1, Volume: 0.5, MaxQueue: 50, MaxPlaylist: 10, MaxLength: time.Hour, PluginID: "music", TextCommands: true}
+		AudioFormat: "best", Bitrate: "96k", Channels: 1, Volume: 0.5, MaxQueue: 50, MaxPlaylist: 10, PluginID: "music", TextCommands: true}
 	os.MkdirAll(filepath.Join(cfg.DataDir, "downloads"), 0700)
 	startBot(t, cfg, newYtdlp(cfg))
 	waitFor(t, "the bot to sign in", 10*time.Second, func() bool {
