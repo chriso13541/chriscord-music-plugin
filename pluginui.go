@@ -24,8 +24,10 @@ package main
 // short one for everyone.
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -141,16 +143,63 @@ func (b *Bot) onLane(s *chriscordbot.LaneSession, raw json.RawMessage) {
 	b.ui.poke()
 }
 
+// panelResults is how many search results the panel offers.
+const panelResults = 5
+
 // action: a click in the panel.
 func (b *Bot) action(action, value string, r req) {
 	switch action {
 	case "add":
+		// A link plays; words show the top results, for them to choose from.
+		if looksLikeURL(strings.Trim(value, "<>")) || isPick(value) {
+			b.ui.setResults(r.user, nil, "")
+			b.run("play", value, r)
+			return
+		}
+		b.panelSearch(r, value)
+	case "pick": // one of their results
+		if b.pendingSearch(r.user) == nil {
+			b.ui.setResults(r.user, nil, "")
+			r.tell("Those results have expired — search again.")
+			return
+		}
+		b.ui.setResults(r.user, nil, "")
 		b.run("play", value, r)
+	case "close_results":
+		b.ui.setResults(r.user, nil, "")
 	case "toggle", "skip", "stop", "clear", "leave", "remove":
 		b.run(action, value, r)
 	default:
 		r.tell("That button doesn't do anything any more — the panel may be out of date.")
 	}
+}
+
+// panelSearch: words typed in the panel's box — the top results go in
+// their panel (only theirs), each with a button to play it.
+func (b *Bot) panelSearch(r req, words string) {
+	if words == "" {
+		return
+	}
+	b.ui.setResults(r.user, nil, "Searching for “"+words+"”…")
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	res, err := b.ytdlp.search(ctx, words, panelResults)
+	if err != nil {
+		logf("search: %q: %v", words, err)
+		b.ui.setResults(r.user, nil, "")
+		r.tell(fmt.Sprintf("Couldn't search for %q — %v", words, err))
+		return
+	}
+	if len(res) == 0 {
+		b.ui.setResults(r.user, nil, "")
+		r.tell(fmt.Sprintf("Nothing found for %q.", words))
+		return
+	}
+	// Kept like /music search's, so "pick" (and /music pick) play from them.
+	b.mu.Lock()
+	b.searches[r.user] = searchResult{tracks: res, at: time.Now()}
+	b.mu.Unlock()
+	b.ui.setResults(r.user, res, "Results for “"+words+"”")
 }
 
 // reply answers a command or click, just to the person who sent it.
@@ -173,6 +222,15 @@ type panelUI struct {
 	elapsed   time.Duration
 	running   bool
 	connected bool
+	inCall    string // who's in its call, as last seen (callChanged)
+	// Search results in someone's panel (theirs alone), by their name.
+	results map[string]panelSearchView
+}
+
+type panelSearchView struct {
+	title  string
+	tracks []trackInfo // none: still searching (title says so)
+	at     time.Time
 }
 
 func newPanelUI(b *Bot) *panelUI { return &panelUI{b: b, wake: make(chan struct{}, 1)} }
@@ -185,12 +243,109 @@ func (u *panelUI) poke() {
 	}
 }
 
+// setResults shows (tracks or a "searching" title) or takes away (both
+// empty) search results in user's panel, and sends them their panel now.
+func (u *panelUI) setResults(user string, tracks []trackInfo, title string) {
+	u.mu.Lock()
+	if u.results == nil {
+		u.results = map[string]panelSearchView{}
+	}
+	_, had := u.results[user]
+	if title == "" && len(tracks) == 0 {
+		delete(u.results, user)
+	} else {
+		u.results[user] = panelSearchView{title: title, tracks: tracks, at: time.Now()}
+	}
+	if had || title != "" {
+		u.sig = "" // send the panel again (each person's with their own results)
+	}
+	u.mu.Unlock()
+	u.poke()
+}
+
+// forUser is panel with user's search results in it (after the box), if
+// they have any; panel itself isn't changed.
+func (u *panelUI) forUser(panel map[string]interface{}, user string) map[string]interface{} {
+	if panel == nil {
+		return nil
+	}
+	u.mu.Lock()
+	r, ok := u.results[user]
+	if ok && time.Since(r.at) > searchKeep {
+		delete(u.results, user)
+		ok = false
+	}
+	u.mu.Unlock()
+	if !ok {
+		return panel
+	}
+	var items []interface{}
+	for i, t := range r.tracks {
+		sub := t.Uploader
+		if t.Live {
+			sub = strings.TrimPrefix(sub+" · live", " · ")
+		} else if t.Duration > 0 {
+			sub = strings.TrimPrefix(sub+" · "+clockTime(t.Duration), " · ")
+		}
+		items = append(items, map[string]interface{}{"title": t.Title, "sub": sub, "actions": []interface{}{
+			map[string]interface{}{"action": "pick", "value": strconv.Itoa(i + 1), "icon": "play_arrow", "label": "Play this"},
+		}})
+	}
+	results := map[string]interface{}{"type": "list", "title": r.title, "empty": "Searching…", "items": items}
+	close := map[string]interface{}{"type": "buttons", "buttons": []interface{}{
+		map[string]interface{}{"action": "close_results", "icon": "close", "label": "Close results"},
+	}}
+	blocks, _ := panel["blocks"].([]interface{})
+	out := make([]interface{}, 0, len(blocks)+2)
+	placed := false
+	for _, bl := range blocks {
+		out = append(out, bl)
+		if m, _ := bl.(map[string]interface{}); !placed && m != nil && m["type"] == "input" {
+			out = append(out, results, close)
+			placed = true
+		}
+	}
+	if !placed {
+		out = append(out, results, close)
+	}
+	cp := map[string]interface{}{}
+	for k, v := range panel {
+		cp[k] = v
+	}
+	cp["blocks"] = out
+	return cp
+}
+
 // reconnected: the server forgot the panel when the connection dropped.
 func (u *panelUI) reconnected() {
 	u.mu.Lock()
 	u.sig, u.board, u.connected = "", "", true
 	u.mu.Unlock()
 	u.poke()
+}
+
+// callChanged: voice_state came. If who's in its call changed, the panel
+// goes to everyone again, even if it looks the same: someone who left and
+// came back may have lost it on their side (and the panel only went out
+// when it changed, so they'd see nothing playing while it plays).
+func (u *panelUI) callChanged() {
+	board, _ := u.b.inVoice()
+	who := ""
+	if board != "" {
+		others := append([]string(nil), u.b.othersIn(board)...)
+		sort.Strings(others)
+		who = board + "|" + strings.Join(others, ",")
+	}
+	u.mu.Lock()
+	changed := who != u.inCall
+	u.inCall = who
+	if changed {
+		u.sig = ""
+	}
+	u.mu.Unlock()
+	if changed {
+		u.poke()
+	}
 }
 
 // loop keeps the panel up to date: on a poke, and twice a second in case
@@ -250,7 +405,7 @@ func (u *panelUI) send(board string, panel map[string]interface{}) {
 		if board != "" && !s.MayRead(board) {
 			continue
 		}
-		if err := s.Send(map[string]interface{}{"t": "panel", "board": board, "panel": panel}); err != nil {
+		if err := s.Send(map[string]interface{}{"t": "panel", "board": board, "panel": u.forUser(panel, s.Name)}); err != nil {
 			logf("panel: %v", err)
 			u.mu.Lock()
 			u.sig = "" // try again next time
@@ -270,7 +425,7 @@ func (u *panelUI) sendTo(s *chriscordbot.LaneSession) {
 	if board != "" && !s.MayRead(board) {
 		return
 	}
-	s.Send(map[string]interface{}{"t": "panel", "board": board, "panel": panel})
+	s.Send(map[string]interface{}{"t": "panel", "board": board, "panel": u.forUser(panel, s.Name)})
 }
 
 // panel describes the Music panel now (its progress block without the

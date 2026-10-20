@@ -29,6 +29,9 @@ done
 cp plugin.json README.md "$stage/"
 [ -f LICENSE ] && cp LICENSE "$stage/"
 [ -f pfp.png ] && cp pfp.png "$stage/"   # a default picture, if you add one
+# Its own icon in the app, if you add one: icon.ico (or icon.png), named in
+# plugin.json as "icon". Without it the app shows its profile picture.
+for f in icon.ico icon.png; do if [ -f "$f" ]; then cp "$f" "$stage/"; fi; done
 
 out="dist/chriscord-music-plugin-$version.tar"
 # Plain ustar, owned by nobody in particular: the server's reader takes

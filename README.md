@@ -155,7 +155,7 @@ the program's stdin and then closes it:
 the values from `plugin.json`, already checked against their types and
 limits. To stop the plugin, the server sends SIGTERM.
 
-`plugin.json` lists its commands (with their arguments) and its panel. The
+`plugin.json` lists its commands (with their arguments) and its panel. Its icon in the app is its profile picture (above); a plugin can ship its own instead as `"icon": "icon.ico"` — a .ico or .png in its folder, at most 256 KB. The
 app's commands and panel clicks arrive on the bot connection as
 `plugin_command` and `plugin_action` events. It answers with `plugin_reply`
 and shows its panel with `plugin_panel` (`pluginui.go`, through the SDK's

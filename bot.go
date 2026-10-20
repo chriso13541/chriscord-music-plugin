@@ -49,7 +49,10 @@ func newBot(cfg config, c *chriscordbot.Bot, y *ytdlp) *Bot {
 	c.OnMessage = func(m *chriscordbot.Message) {
 		b.onChat(chatMessage{BoardID: m.Channel, Username: m.Author, Text: m.Text, msg: m})
 	}
-	c.OnVoiceState = func(map[string][]string) { b.checkAlone() }
+	c.OnVoiceState = func(map[string][]string) {
+		b.checkAlone()
+		b.ui.callChanged() // someone back in its call: their app gets the panel again
+	}
 	c.OnCallReady = func(string) { b.pl.kick() }
 	c.OnCallEnded = func(_, reason string) {
 		b.stopAlone()
