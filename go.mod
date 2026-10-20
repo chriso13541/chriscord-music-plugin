@@ -3,7 +3,7 @@ module chriscord-music-plugin
 go 1.24.7
 
 require (
-	github.com/chriso13541/chriscord-bot-sdk v0.2.1
+	github.com/chriso13541/chriscord-bot-sdk v0.2.2
 	github.com/gorilla/websocket v1.5.3
 	github.com/pion/rtp v1.10.5
 	github.com/pion/webrtc/v3 v3.3.6
