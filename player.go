@@ -26,6 +26,7 @@ type track struct {
 	trackInfo
 	requester string
 	board     string // the text channel it was asked for in
+	auto      bool   // queued by autoplay (autoplay.go)
 
 	dlOnce sync.Once
 	dlDone chan struct{}
@@ -259,6 +260,26 @@ func (p *player) remove(n int) *track {
 	return t
 }
 
+// dropAuto takes autoplay's tracks out of the queue: someone asked for
+// something themselves, which comes first (autoplay picks again after).
+func (p *player) dropAuto() int {
+	p.mu.Lock()
+	var keep, gone []*track
+	for _, t := range p.queue {
+		if t.auto {
+			gone = append(gone, t)
+		} else {
+			keep = append(keep, t)
+		}
+	}
+	p.queue = keep
+	p.mu.Unlock()
+	for _, t := range gone {
+		t.discard()
+	}
+	return len(gone)
+}
+
 // stopAll empties the queue and stops what's playing.
 func (p *player) stopAll() {
 	p.clear()
@@ -304,6 +325,7 @@ func (p *player) loop() {
 				logf("player: %q: %v", next.Title, err)
 				go p.b.say(next.board, fmt.Sprintf("Couldn't play %s — %v", next.Title, err))
 			}
+			go p.b.auto.fill() // the queue may have run out: autoplay's turn
 			continue
 		}
 		p.mu.Unlock()
@@ -407,7 +429,12 @@ func (p *player) play(ctx context.Context, t *track) error {
 	} else {
 		logf("player: playing %q (asked for by %s)", t.Title, t.requester)
 	}
-	go p.b.say(t.board, iconPlay+" Now playing: "+t.Title+lengthNote(t.trackInfo))
+	by := ""
+	if t.auto {
+		by = " (autoplay)"
+	}
+	go p.b.say(t.board, iconPlay+" Now playing: "+t.Title+lengthNote(t.trackInfo)+by)
+	p.b.auto.played(t) // into the history; autoplay finds the next if nothing's queued
 	p.showStatus()
 	p.b.speaking(true)
 
