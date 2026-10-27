@@ -50,7 +50,7 @@ server, or build on the bot API.)
 5. Add it to the server's **signed member list** (Server info → Member list
    in the app: it shows up under "Where the server and the list disagree").
    Until the approvers do, nobody's app sends it anything. It doesn't need
-   to read any channel for this — only for chat commands (below).
+   to read any channel: it never does.
 
 yt-dlp downloads itself into the plugin's data folder on first start and
 keeps itself up to date.
@@ -91,10 +91,10 @@ like `/music queue`, show only to you.
 | `/music leave` | Leave the call |
 | `/music help` | All the commands |
 
-The old chat commands (`!play`) work too, with **Chat commands too** turned
-on in its settings — but then the plugin has to read the text channel, so
-the signed member list's approvers have to let it, and whoever runs the
-server can read that channel through it.
+There are no chat commands (`!play`): a command typed as a chat message
+would mean the plugin reading the channel, so whoever runs the server could
+read it through the plugin. Only `/music …` and the panel, which go to the
+plugin end-to-end encrypted.
 
 It leaves on its own after a few minutes alone in a call.
 
@@ -111,7 +111,6 @@ shows the latest.
 Change these in the admin panel, under Plugins → Music. Saving restarts the
 plugin.
 
-- chat commands (`!play`) on or off, and their prefix;
 - autoplay on or off to start with (anyone can switch it; that's remembered);
 - volume, bitrate, mono or stereo;
 - download format;
@@ -136,8 +135,7 @@ default picture.
 
 Calls and chat stay end-to-end encrypted, and the plugin isn't part of
 them: it plays into a call with its own keys, but nobody's app gives it the
-call's keys, so it never hears anyone. It reads no channel unless you turn
-on chat commands.
+call's keys, so it never hears anyone. It reads no channel at all.
 
 Commands, panel clicks, its answers, its panel and its announcements go
 between members' apps and the plugin end-to-end encrypted ("lanes"): the
@@ -159,7 +157,7 @@ the program's stdin and then closes it:
 
 ```json
 {"chriscord_plugin": 1, "id": "music", "server": "http://127.0.0.1:7070",
- "token": "ccbot_1_…", "settings": {"prefix": "!", …}, "data_dir": "…"}
+ "token": "ccbot_1_…", "settings": {"volume_percent": 50, …}, "data_dir": "…"}
 ```
 
 `token` goes straight to the bot SDK (`chriscordbot.New`). `settings` holds
@@ -167,11 +165,13 @@ the values from `plugin.json`, already checked against their types and
 limits. To stop the plugin, the server sends SIGTERM.
 
 `plugin.json` lists its commands (with their arguments) and its panel. Its icon in the app is its profile picture (above); a plugin can ship its own instead as `"icon": "icon.ico"` — a .ico or .png in its folder, at most 256 KB. The
-app's commands and panel clicks arrive on the bot connection as
-`plugin_command` and `plugin_action` events. It answers with `plugin_reply`
-and shows its panel with `plugin_panel` (`pluginui.go`, through the SDK's
-`OnEvent` and `SendRaw`). `config.go` and `pluginui.go` are the
-plugin-specific code; the rest is the same bot as chriscord-musicbot.
+app's commands and panel clicks arrive on each member's lane
+(`"lanes": true`; the SDK's `OnLane`), end-to-end encrypted and signed by
+the member, and its answers and panel go back on it (`pluginui.go`). A
+`plugin_command` or `plugin_action` that arrives in the clear is ignored and
+never answered: it can't be from a member's app. Commands are carried out in
+the order they arrive (a slow lookup doesn't let a later play jump ahead).
+`config.go` and `pluginui.go` are the plugin-specific code.
 
 ## Testing
 

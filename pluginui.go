@@ -53,36 +53,19 @@ var commandArg = map[string]string{
 	"play": "query", "search": "words", "pick": "number", "remove": "number", "autoplay": "state",
 }
 
-// onEvent: everything from the server; the plugin's own events handled here.
+// onEvent: everything from the server. Commands and clicks only come on
+// lanes (end-to-end encrypted, signed by the member: below) — this plugin
+// takes them (plugin.json "lanes"), so one that arrives in the clear isn't
+// from a member's app: the server made it up, or was told the plugin has no
+// lanes to get the member's app to send it in the clear. Ignored, and never
+// answered in the clear.
 func (b *Bot) onEvent(e chriscordbot.Event) {
 	switch e.Type {
 	case "plugin_command", "plugin_action":
-	default:
-		return
+		var ev uiEvent
+		_ = json.Unmarshal(e.Raw, &ev)
+		logf("app: ignored a %s that came in the clear (from %q, says the server) — this plugin only takes them end-to-end encrypted", e.Type, ev.User)
 	}
-	var ev uiEvent
-	if err := json.Unmarshal(e.Raw, &ev); err != nil || ev.ID == "" || ev.User == "" {
-		return
-	}
-	tell := func(text string) { b.reply(ev.ID, text) }
-	if ev.Type == "plugin_command" {
-		cmd := strings.ToLower(ev.Command)
-		arg := strings.TrimSpace(ev.Args[commandArg[cmd]])
-		logf("app: %s: /%s %s %s", ev.User, b.cfg.PluginID, cmd, arg)
-		// What everyone should know goes in the channel it was typed in,
-		// with who asked; problems and answers only go to them.
-		board := ev.BoardID
-		say := func(text string) { b.say(board, text+" — "+ev.User) }
-		b.run(cmd, arg, req{user: ev.User, board: board, say: say, tell: tell, prefix: "/" + b.cfg.PluginID + " "})
-	} else {
-		value := ""
-		if ev.Value != nil {
-			value = strings.TrimSpace(*ev.Value)
-		}
-		logf("panel: %s: %s %s", ev.User, ev.Action, value)
-		b.action(ev.Action, value, req{user: ev.User, tell: tell, prefix: "/" + b.cfg.PluginID + " "})
-	}
-	b.ui.poke()
 }
 
 // ── Lanes ─────────────────────────────────────────────────────────────────────
@@ -112,6 +95,13 @@ func (b *Bot) onLane(s *chriscordbot.LaneSession, raw json.RawMessage) {
 	}
 	who := s.Name
 	tell := func(text string) { s.Send(map[string]interface{}{"t": "reply", "to": m.ID, "content": text}) }
+	// Its turn: what's asked for is queued in the order it was asked,
+	// however long each takes to look up (see turns).
+	var turn uint64
+	if m.T == "command" || m.T == "action" {
+		turn = b.turns.take()
+		defer b.turns.finish(turn)
+	}
 	// A channel they named has to be one they can read (it's where answers
 	// everyone should see go).
 	if m.Board != "" && !s.MayRead(m.Board) {
@@ -133,10 +123,10 @@ func (b *Bot) onLane(s *chriscordbot.LaneSession, raw json.RawMessage) {
 			}
 			b.say(board, text+" — "+who)
 		}
-		b.run(cmd, arg, req{user: who, board: board, say: say, tell: tell, prefix: "/" + b.cfg.PluginID + " "})
+		b.run(cmd, arg, req{user: who, board: board, say: say, tell: tell, prefix: "/" + b.cfg.PluginID + " ", turn: turn})
 	case "action":
 		logf("panel: %s: %s %s", who, m.Action, m.Value)
-		b.action(m.Action, strings.TrimSpace(m.Value), req{user: who, tell: tell, prefix: "/" + b.cfg.PluginID + " "})
+		b.action(m.Action, strings.TrimSpace(m.Value), req{user: who, tell: tell, prefix: "/" + b.cfg.PluginID + " ", turn: turn})
 	default:
 		return // a ping
 	}
@@ -202,13 +192,6 @@ func (b *Bot) panelSearch(r req, words string) {
 	b.searches[r.user] = searchResult{tracks: res, at: time.Now()}
 	b.mu.Unlock()
 	b.ui.setResults(r.user, res, "Results for “"+words+"”")
-}
-
-// reply answers a command or click, just to the person who sent it.
-func (b *Bot) reply(id, text string) {
-	if err := b.c.SendRaw(map[string]interface{}{"type": "plugin_reply", "to": id, "content": text}); err != nil {
-		logf("app: replying: %v", err)
-	}
 }
 
 // ── The panel ─────────────────────────────────────────────────────────────────

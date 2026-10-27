@@ -94,7 +94,7 @@ func main() {
 	y := newYtdlp(cfg)
 	go y.updateLoop()
 
-	logf("chriscord-music-plugin %s starting: %s as the bot %q (commands start with %q)", version, cfg.ServerURL, c.Name(), cfg.Prefix)
+	logf("chriscord-music-plugin %s starting: %s as the bot %q (commands: /%s …)", version, cfg.ServerURL, c.Name(), cfg.PluginID)
 	b := newBot(cfg, c, y)
 	go b.pl.loop()
 	go b.ui.loop()

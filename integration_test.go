@@ -479,6 +479,11 @@ func (m *mock) handle(name string, v map[string]interface{}) {
 		switch lm.T {
 		case "reply":
 			out = map[string]interface{}{"type": "plugin_reply", "to": lm.To, "content": lm.Content}
+			// Just for her, where she asked: alice reads it like the rest.
+			m.mu.Lock()
+			local := m.users["alice"].local
+			m.mu.Unlock()
+			local(map[string]interface{}{"type": "notice", "text": lm.Content})
 		case "notice":
 			out = map[string]interface{}{"type": "plugin_reply", "to": "", "content": lm.Text}
 		case "panel":
@@ -704,6 +709,35 @@ func (a *alice) say(t *testing.T, board, text string) {
 	a.m.handle("alice", map[string]interface{}{"type": "message", "board_id": board, "content": c})
 }
 
+// cmd: alice types "/music <line>" in board — sent on her lane, as the app
+// sends it (the plugin reads no chat, and takes nothing in the clear).
+func (a *alice) cmd(t *testing.T, board, line string) {
+	t.Helper()
+	name, arg, _ := strings.Cut(strings.TrimSpace(line), " ")
+	args := map[string]string{}
+	if key := commandArg[name]; key != "" && arg != "" {
+		args[key] = arg
+	}
+	a.m.app("plugin_command", map[string]interface{}{"board_id": board, "command": name, "args": args})
+}
+
+// never: the bot doesn't say anything containing want for a while.
+func (a *alice) never(t *testing.T, want string, d time.Duration) {
+	t.Helper()
+	end := time.After(d)
+	for {
+		select {
+		case s := <-a.inbox:
+			if strings.Contains(s, want) {
+				t.Fatalf("the bot said %q", s)
+			}
+			a.seen = append(a.seen, s)
+		case <-end:
+			return
+		}
+	}
+}
+
 // expect waits for the bot to say something containing want.
 func (a *alice) expect(t *testing.T, want string, within time.Duration) string {
 	t.Helper()
@@ -777,7 +811,7 @@ func (a *alice) botStatus(t *testing.T) (string, int) {
 	return strings.TrimSpace(p.E + " " + p.C), len(blob)
 }
 
-func (a *alice) expectStatus(t *testing.T, want string) {
+func (a *alice) expectStatus(t *testing.T, want string) { //nolint:unused // kept for bots, which may post one
 	t.Helper()
 	var got string
 	waitFor(t, "the bot's status to be "+want, 10*time.Second, func() bool {
@@ -809,10 +843,10 @@ func TestBot(t *testing.T) {
 	const text, voiceA = "text-1", "voice-1"
 	a := newAlice(t, m)
 
-	cfg := config{ServerURL: m.srv.URL, Token: testToken(t), DataDir: filepath.Join(work, "bot"), Prefix: "!",
+	cfg := config{ServerURL: m.srv.URL, Token: testToken(t), DataDir: filepath.Join(work, "bot"),
 		AloneAfter: 3 * time.Second, YtdlpEvery: time.Hour, YtdlpPath: os.Getenv("BOT_YTDLP"), FFmpeg: "ffmpeg",
 		AudioFormat: "mp3", Bitrate: "96k", Channels: 1, Volume: 0.5, MaxQueue: 50, MaxPlaylist: 10,
-		PluginID: "music", TextCommands: true}
+		PluginID: "music"}
 	os.MkdirAll(filepath.Join(cfg.DataDir, "downloads"), 0700)
 	// A non-square picture: it should arrive as a 512 px square PNG.
 	if b, err := exec.Command("ffmpeg", "-y", "-loglevel", "error", "-f", "lavfi", "-i", "testsrc=size=1200x800",
@@ -849,7 +883,7 @@ func TestBot(t *testing.T) {
 	}
 
 	// Not in a call yet: the bot won't come.
-	a.say(t, text, "!play "+mediaURL+"/tone1.mp3")
+	a.cmd(t, text, "play "+mediaURL+"/tone1.mp3")
 	a.expect(t, "Join a voice channel first", 10*time.Second)
 
 	// The same from the app (/music play), on her lane: the answer is just
@@ -863,8 +897,8 @@ func TestBot(t *testing.T) {
 	// Alice joins voice; then !play.
 	a.call.begin(voiceA, "alice")
 	m.handle("alice", map[string]interface{}{"type": "join_voice", "board_id": voiceA})
-	a.say(t, text, "!play "+mediaURL+"/tone1.mp3")
-	a.say(t, text, "!play "+mediaURL+"/tone2.mp3")
+	a.cmd(t, text, "play "+mediaURL+"/tone1.mp3")
+	a.cmd(t, text, "play "+mediaURL+"/tone2.mp3")
 	a.expect(t, "Now playing: tone1", 30*time.Second)
 	a.expect(t, "#1 in line", 10*time.Second)
 
@@ -897,7 +931,7 @@ func TestBot(t *testing.T) {
 	checkVideo(t, m, a, bot, work)
 
 	// Pause: nothing sent; resume: it carries on.
-	a.say(t, text, "!pause")
+	a.cmd(t, text, "pause")
 	a.expect(t, "Paused", 10*time.Second)
 	time.Sleep(300 * time.Millisecond)
 	drain(m.tap)
@@ -905,9 +939,9 @@ func TestBot(t *testing.T) {
 	if n := len(m.tap); n > 2 {
 		t.Fatalf("paused, but %d packets went out", n)
 	}
-	a.say(t, text, "!queue")
+	a.cmd(t, text, "queue")
 	a.expect(t, "Up next:\n1. tone2", 10*time.Second)
-	a.say(t, text, "!resume")
+	a.cmd(t, text, "resume")
 	a.expect(t, "Resumed", 10*time.Second)
 	time.Sleep(time.Second)
 	if n := len(m.tap); n < 30 {
@@ -915,7 +949,7 @@ func TestBot(t *testing.T) {
 	}
 
 	// Skip → the next track.
-	a.say(t, text, "!skip")
+	a.cmd(t, text, "skip")
 	a.expect(t, "Skipped tone1", 10*time.Second)
 	a.expect(t, "Now playing: tone2", 20*time.Second)
 
@@ -963,16 +997,16 @@ func TestBot(t *testing.T) {
 	}
 
 	// Clear and disconnect.
-	a.say(t, text, "!play "+mediaURL+"/tone1.mp3")
+	a.cmd(t, text, "play "+mediaURL+"/tone1.mp3")
 	a.expect(t, "Queued tone1", 20*time.Second)
-	a.say(t, text, "!clear")
+	a.cmd(t, text, "clear")
 	a.expect(t, "Cleared the queue (1 track)", 10*time.Second)
-	a.say(t, text, "!disconnect")
+	a.cmd(t, text, "disconnect")
 	a.expect(t, "Left the call", 10*time.Second)
 	waitFor(t, "the bot to leave", 5*time.Second, func() bool { m.mu.Lock(); defer m.mu.Unlock(); return m.voice["Music"] == "" })
 
 	// Left alone: gone after BOT_ALONE_TIMEOUT (3 s here).
-	a.say(t, text, "!play "+mediaURL+"/tone1.mp3")
+	a.cmd(t, text, "play "+mediaURL+"/tone1.mp3")
 	a.expect(t, "Now playing: tone1", 30*time.Second)
 	m.handle("alice", map[string]interface{}{"type": "leave_voice"})
 	a.call.end()
@@ -1150,67 +1184,80 @@ func TestBotYouTube(t *testing.T) {
 	defer m.srv.Close()
 	const text, voice = "text-1", "voice-1"
 	a := newAlice(t, m)
-	cfg := config{ServerURL: m.srv.URL, Token: testToken(t), DataDir: filepath.Join(work, "bot"), Prefix: "!",
+	cfg := config{ServerURL: m.srv.URL, Token: testToken(t), DataDir: filepath.Join(work, "bot"),
 		AloneAfter: time.Minute, YtdlpEvery: time.Hour, YtdlpPath: fake, FFmpeg: "ffmpeg",
-		AudioFormat: "best", Bitrate: "96k", Channels: 1, Volume: 0.5, MaxQueue: 50, MaxPlaylist: 10, PluginID: "music", TextCommands: true}
+		AudioFormat: "best", Bitrate: "96k", Channels: 1, Volume: 0.5, MaxQueue: 50, MaxPlaylist: 10, PluginID: "music"}
 	os.MkdirAll(filepath.Join(cfg.DataDir, "downloads"), 0700)
-	startBot(t, cfg, newYtdlp(cfg))
+	bot := startBot(t, cfg, newYtdlp(cfg))
 	waitFor(t, "the bot to sign in", 10*time.Second, func() bool {
 		m.mu.Lock()
 		defer m.mu.Unlock()
 		u := m.users["Music"]
 		return u != nil && u.encKey != nil
 	})
+	waitFor(t, "the plugin to take the signed member list", 10*time.Second, func() bool { return bot.c.RosterState() == "active" })
+	m.openLane(t)
 	a.call.begin(voice, "alice")
 	m.handle("alice", map[string]interface{}{"type": "join_voice", "board_id": voice})
 
 	// !search lists 10 (not the channel), the live one marked; !play 3 picks.
-	a.say(t, text, "!search lofi")
+	a.cmd(t, text, "search lofi")
 	list := a.expect(t, "Results for \"lofi\"", 20*time.Second)
 	if !strings.Contains(list, "1. lofi hip hop radio") ||
 		!strings.Contains(list, "10. lofi track 9") || strings.Contains(list, "\n11.") {
 		t.Fatalf("search list looks wrong:\n%s", list)
 	}
-	a.say(t, text, "!play 3")
+	a.cmd(t, text, "play 3")
 	a.expect(t, "Now playing: lofi track 2", 20*time.Second)
-	a.expectStatus(t, "🎶 lofi track 2")
-	a.say(t, text, "!pause")
-	a.expect(t, "|| Paused.", 10*time.Second)
-	a.expectStatus(t, "🎶 Paused: lofi track 2")
-	a.say(t, text, "!resume")
-	a.expectStatus(t, "🎶 lofi track 2")
+
+	// Commands in the clear — the server making them up, or one told the
+	// plugin has no lanes — are ignored, and never answered in the clear
+	// (the mock fails the test if the plugin sends plugin_reply).
+	for _, kind := range []string{"plugin_command", "plugin_action"} {
+		m.to("Music", map[string]interface{}{"type": kind, "id": "forged-" + kind, "user": "alice", "board_id": text,
+			"command": "stop", "args": map[string]string{}, "action": "stop"})
+	}
+	a.never(t, "Stopped", 2*time.Second)
+	drain(m.tap)
+	time.Sleep(time.Second)
+	if n := len(m.tap); n < 40 {
+		t.Fatalf("a forged command stopped it (%d packets in 1 s)", n)
+	}
+	a.cmd(t, text, "pause")
+	a.expect(t, "|| Paused. — alice", 10*time.Second)
+	a.cmd(t, text, "resume")
+	a.expect(t, "Resumed. — alice", 10*time.Second)
 
 	// Words: the top result — here a live stream, streamed rather than downloaded.
-	a.say(t, text, "!play lofi")
+	a.cmd(t, text, "play lofi")
 	a.expect(t, "Queued lofi hip hop radio", 20*time.Second)
-	a.say(t, text, "!skip")
+	a.cmd(t, text, "skip")
 	a.expect(t, "Now playing: lofi hip hop radio 📚 beats to relax/study to (🔴 live)", 20*time.Second)
-	a.expectStatus(t, "🔴 lofi hip hop radio 📚 beats to relax/study to")
 	time.Sleep(1500 * time.Millisecond)
 	drain(m.tap)
 	time.Sleep(time.Second)
 	if n := len(m.tap); n < 40 {
 		t.Fatalf("the live stream isn't playing (%d packets in 1 s)", n)
 	}
-	a.say(t, text, "!np")
+	a.cmd(t, text, "np")
 	a.expect(t, "🔴 live", 10*time.Second)
 
 	// A mix link, radio-style: private/deleted left out, capped at 10.
-	a.say(t, text, "!play https://music.youtube.com/watch?v=MIXseed0001&list=RDAMVMMIXseed0001&si=abc")
+	a.cmd(t, text, "play https://music.youtube.com/watch?v=MIXseed0001&list=RDAMVMMIXseed0001&si=abc")
 	a.expect(t, "Queued 10 tracks from the mix “Mix - Seed song” (skipped 2 unavailable)", 20*time.Second)
-	a.say(t, text, "!queue")
+	a.cmd(t, text, "queue")
 	q := a.expect(t, "Up next:", 10*time.Second)
 	if !strings.Contains(q, "3. Flaky song") || strings.Contains(q, "Private") {
 		t.Fatalf("queue looks wrong:\n%s", q)
 	}
 
 	// The 403 on "Flaky song" is retried and it plays.
-	a.say(t, text, "!skip") // the live stream → Seed song
+	a.cmd(t, text, "skip") // the live stream → Seed song
 	a.expect(t, ">> Skipped lofi hip hop radio", 10*time.Second)
 	a.expect(t, "Now playing: Seed song", 20*time.Second)
-	a.say(t, text, "!skip") // → Mix song 1
+	a.cmd(t, text, "skip") // → Mix song 1
 	a.expect(t, "Now playing: Mix song 1", 20*time.Second)
-	a.say(t, text, "!skip") // → Flaky song (first download got a 403)
+	a.cmd(t, text, "skip") // → Flaky song (first download got a 403)
 	a.expect(t, "Now playing: Flaky song", 30*time.Second)
 	if _, err := os.Stat(filepath.Join(work, "flaky-done")); err != nil {
 		t.Fatal("the 403 never happened — the test didn't test it")
@@ -1222,7 +1269,7 @@ func TestBotYouTube(t *testing.T) {
 	}
 
 	// !stop: nothing playing, queue empty, still in the call.
-	a.say(t, text, "!stop")
+	a.cmd(t, text, "stop")
 	a.expect(t, "Stopped and cleared the queue", 10*time.Second)
 	time.Sleep(500 * time.Millisecond)
 	drain(m.tap)
@@ -1234,11 +1281,16 @@ func TestBotYouTube(t *testing.T) {
 	still := m.voice["Music"] == voice
 	m.mu.Unlock()
 	if !still {
-		t.Fatal("!stop shouldn't leave the call")
+		t.Fatal("/music stop shouldn't leave the call")
 	}
-	a.say(t, text, "!queue")
+	a.cmd(t, text, "queue")
 	a.expect(t, "The queue's empty.", 10*time.Second)
-	a.expectStatus(t, "")
+	// It never posts a status: plugins aren't given the key members' statuses
+	// are sealed with (the signed member list keeps it from them), so what's
+	// playing shows in its panel and announcements instead.
+	if got, _ := a.botStatus(t); got != "<none sent>" {
+		t.Fatalf("the plugin posted a status: %q", got)
+	}
 }
 
 func checkVideo(t *testing.T, m *mock, a *alice, bot *Bot, dir string) {

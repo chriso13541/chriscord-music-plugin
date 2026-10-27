@@ -28,7 +28,7 @@
   ],
   "internet": true,
   "lanes": true,
-  "channels": "Pick the voice channels it may play in. It doesn't need text channels: its commands and announcements go end-to-end encrypted between members' apps and the plugin. Only if you turn on text commands (!play typed as a chat message) does it need to read a text channel — and then the server's signed member list has to let it.",
+  "channels": "Pick the voice channels it may play in. It doesn't need any text channel: its commands, answers and announcements go end-to-end encrypted between members' apps and the plugin, and it reads no channel's messages.",
   "panel": {
     "title": "Music"
   },
@@ -139,20 +139,6 @@
     }
   ],
   "settings": [
-    {
-      "key": "text_commands",
-      "label": "Chat commands too",
-      "type": "bool",
-      "default": false,
-      "help": "Also take commands typed as chat messages, like !play (the old way). /music commands and the panel work either way"
-    },
-    {
-      "key": "prefix",
-      "label": "Chat command prefix",
-      "type": "text",
-      "default": "!",
-      "help": "With chat commands on: what they start with, e.g. !play"
-    },
     {
       "key": "autoplay",
       "label": "Autoplay",

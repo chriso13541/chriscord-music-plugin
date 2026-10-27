@@ -28,25 +28,23 @@ import (
 )
 
 type config struct {
-	ServerURL    string        // where the Chriscord server is (from the server)
-	Token        string        // the plugin's bot token (from the server)
-	DataDir      string        // where it keeps yt-dlp, downloads (from the server)
-	CodeDir      string        // its own folder (pfp.png can ship there)
-	PluginID     string        // its id here: commands are typed as /<id> play
-	TextCommands bool          // text_commands — also take !play etc. as chat messages
-	Prefix       string        // prefix — what those chat commands start with
-	AloneAfter   time.Duration // alone_minutes — leave after sitting alone this long
-	YtdlpEvery   time.Duration // ytdlp_check_hours — how often to check GitHub for a new yt-dlp
-	YtdlpPath    string        // ytdlp — use this yt-dlp instead of the managed one (no auto-update)
-	FFmpeg       string        // ffmpeg — the ffmpeg to use
-	AudioFormat  string        // audio_format — "best" (no re-encode) or "mp3"
-	Bitrate      string        // bitrate_kbps — Opus bitrate sent to the call
-	Channels     int           // stereo — 1 (mono, like voices) or 2
-	Autoplay     bool          // autoplay — when the queue runs out, play more like it (until turned off with /music autoplay)
-	Volume       float64       // volume_percent / 100 — 1.0 = as downloaded
-	MaxQueue     int           // max_queue — most tracks waiting at once
-	MaxPlaylist  int           // max_playlist — most tracks one playlist link adds
-	YtdlpArgs    []string      // ytdlp_args — extra yt-dlp arguments (e.g. --cookies cookies.txt)
+	ServerURL   string        // where the Chriscord server is (from the server)
+	Token       string        // the plugin's bot token (from the server)
+	DataDir     string        // where it keeps yt-dlp, downloads (from the server)
+	CodeDir     string        // its own folder (pfp.png can ship there)
+	PluginID    string        // its id here: commands are typed as /<id> play
+	AloneAfter  time.Duration // alone_minutes — leave after sitting alone this long
+	YtdlpEvery  time.Duration // ytdlp_check_hours — how often to check GitHub for a new yt-dlp
+	YtdlpPath   string        // ytdlp — use this yt-dlp instead of the managed one (no auto-update)
+	FFmpeg      string        // ffmpeg — the ffmpeg to use
+	AudioFormat string        // audio_format — "best" (no re-encode) or "mp3"
+	Bitrate     string        // bitrate_kbps — Opus bitrate sent to the call
+	Channels    int           // stereo — 1 (mono, like voices) or 2
+	Autoplay    bool          // autoplay — when the queue runs out, play more like it (until turned off with /music autoplay)
+	Volume      float64       // volume_percent / 100 — 1.0 = as downloaded
+	MaxQueue    int           // max_queue — most tracks waiting at once
+	MaxPlaylist int           // max_playlist — most tracks one playlist link adds
+	YtdlpArgs   []string      // ytdlp_args — extra yt-dlp arguments (e.g. --cookies cookies.txt)
 }
 
 // hello is the line the server writes to stdin.
@@ -102,25 +100,23 @@ func readHello(r io.Reader, wait time.Duration) (hello, error) {
 func configFrom(h hello) (config, error) {
 	s := settings(h.Settings)
 	c := config{
-		ServerURL:    strings.TrimRight(h.Server, "/"),
-		Token:        h.Token,
-		DataDir:      h.DataDir,
-		CodeDir:      os.Getenv("CHRISCORD_PLUGIN_DIR"),
-		PluginID:     h.ID,
-		TextCommands: s.boolean("text_commands", false),
-		Autoplay:     s.boolean("autoplay", false),
-		Prefix:       strings.TrimSpace(s.text("prefix", "!")),
-		YtdlpPath:    strings.TrimSpace(s.text("ytdlp", "")),
-		FFmpeg:       strings.TrimSpace(s.text("ffmpeg", "")),
-		AudioFormat:  strings.ToLower(s.text("audio_format", "best")),
-		Bitrate:      fmt.Sprintf("%dk", int(s.number("bitrate_kbps", 96))),
-		Channels:     1,
-		Volume:       s.number("volume_percent", 50) / 100,
-		MaxQueue:     int(s.number("max_queue", 200)),
-		MaxPlaylist:  int(s.number("max_playlist", 50)),
-		AloneAfter:   minutes(s.number("alone_minutes", 5)),
-		YtdlpEvery:   time.Duration(s.number("ytdlp_check_hours", 24) * float64(time.Hour)),
-		YtdlpArgs:    strings.Fields(s.text("ytdlp_args", "")),
+		ServerURL:   strings.TrimRight(h.Server, "/"),
+		Token:       h.Token,
+		DataDir:     h.DataDir,
+		CodeDir:     os.Getenv("CHRISCORD_PLUGIN_DIR"),
+		PluginID:    h.ID,
+		Autoplay:    s.boolean("autoplay", false),
+		YtdlpPath:   strings.TrimSpace(s.text("ytdlp", "")),
+		FFmpeg:      strings.TrimSpace(s.text("ffmpeg", "")),
+		AudioFormat: strings.ToLower(s.text("audio_format", "best")),
+		Bitrate:     fmt.Sprintf("%dk", int(s.number("bitrate_kbps", 96))),
+		Channels:    1,
+		Volume:      s.number("volume_percent", 50) / 100,
+		MaxQueue:    int(s.number("max_queue", 200)),
+		MaxPlaylist: int(s.number("max_playlist", 50)),
+		AloneAfter:  minutes(s.number("alone_minutes", 5)),
+		YtdlpEvery:  time.Duration(s.number("ytdlp_check_hours", 24) * float64(time.Hour)),
+		YtdlpArgs:   strings.Fields(s.text("ytdlp_args", "")),
 	}
 	if c.DataDir == "" {
 		c.DataDir = "."
@@ -128,9 +124,8 @@ func configFrom(h hello) (config, error) {
 	if c.PluginID == "" {
 		c.PluginID = "music"
 	}
-	if c.Prefix == "" {
-		c.Prefix = "!"
-	}
+	// (Settings from before chat commands were taken out — "prefix",
+	// "text_commands" — may still be saved for it: they're just not read.)
 	if c.FFmpeg == "" {
 		c.FFmpeg = "ffmpeg"
 	}

@@ -4,22 +4,19 @@ package main
 //
 //   - typed in the message box as /music play <song> (the app suggests the
 //     commands and sends them straight to the plugin: pluginui.go);
-//   - clicked in the Music panel (pluginui.go);
-//   - typed as a chat message, !play <song> — only with the "Text commands"
-//     setting on.
+//   - clicked in the Music panel (pluginui.go).
 //
-// Anyone who can see a text channel the plugin is in can use them there;
-// the ones that change what's playing need you to be in its voice channel
-// (like Discord music bots).
+// Both come end-to-end encrypted on the member's lane to the plugin; the
+// plugin reads no text channel at all. The commands that change what's
+// playing need you to be in its voice channel (like Discord music bots).
 
 import (
 	"context"
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
-
-	chriscordbot "github.com/chriso13541/chriscord-bot-sdk"
 )
 
 // Symbols at the start of replies. Plain text characters, drawn in the
@@ -52,14 +49,16 @@ Or use the Music panel in the plugins area.`
 type req struct {
 	user  string
 	board string // the text channel it came from ("" for a click in the panel)
-	msg   *chriscordbot.Message
 	// say tells the channel (what everyone should know: "Queued …");
 	// nil when nobody but them needs to hear (a click in the panel).
 	say func(string)
 	// tell tells just them (problems, and answers only they asked for).
 	tell func(string)
-	// how commands are written, for hints: "/music " or "!"
+	// how commands are written, for hints: "/music "
 	prefix string
+	// its place in line (turns): plays are queued in the order they were
+	// asked for; 0 for none.
+	turn uint64
 }
 
 // ok: something happened that the channel should hear about.
@@ -72,21 +71,56 @@ func (r req) ok(format string, a ...interface{}) {
 // no: a problem, or an answer just for them.
 func (r req) no(format string, a ...interface{}) { r.tell(fmt.Sprintf(format, a...)) }
 
-// onChat: a chat message, which is a command only if it starts with the
-// prefix and text commands are on.
-func (b *Bot) onChat(m chatMessage) {
-	if !b.cfg.TextCommands {
+// turns keeps plays in the order they were asked for. Each command or click
+// takes a ticket as it arrives (they arrive in order; the SDK then handles
+// each in its own goroutine); a play waits for every earlier one to finish
+// before it queues, so a quick lookup can't jump ahead of a slow one.
+type turns struct {
+	mu   sync.Mutex
+	cond *sync.Cond
+	next uint64          // the next ticket to give out
+	low  uint64          // the earliest ticket not finished yet
+	done map[uint64]bool // finished, after low
+}
+
+func (t *turns) init() {
+	if t.cond == nil {
+		t.cond, t.next, t.low, t.done = sync.NewCond(&t.mu), 1, 1, map[uint64]bool{}
+	}
+}
+
+func (t *turns) take() uint64 {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.init()
+	n := t.next
+	t.next++
+	return n
+}
+
+func (t *turns) finish(n uint64) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.init()
+	t.done[n] = true
+	for t.done[t.low] {
+		delete(t.done, t.low)
+		t.low++
+	}
+	t.cond.Broadcast()
+}
+
+// wait until every ticket before n has finished (0: no waiting).
+func (t *turns) wait(n uint64) {
+	if n == 0 {
 		return
 	}
-	text := strings.TrimSpace(m.Text)
-	if !strings.HasPrefix(text, b.cfg.Prefix) {
-		return
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.init()
+	for t.low < n {
+		t.cond.Wait()
 	}
-	cmd, arg, _ := strings.Cut(strings.TrimPrefix(text, b.cfg.Prefix), " ")
-	public := func(s string) { b.say(m.BoardID, s) }
-	logf("chat: %s: %s%s %s", m.Username, b.cfg.Prefix, cmd, arg)
-	b.run(strings.ToLower(strings.TrimSpace(cmd)), strings.TrimSpace(arg),
-		req{user: m.Username, board: m.BoardID, msg: m.msg, say: public, tell: public, prefix: b.cfg.Prefix})
 }
 
 // run carries out one command.
@@ -318,10 +352,8 @@ func (b *Bot) cmdPlay(r req, arg string) {
 		return
 	}
 
-	// Earlier !plays queue first, even if this lookup was quicker.
-	if r.msg != nil {
-		b.c.WaitTurn(r.msg)
-	}
+	// Earlier plays queue first, even if this lookup was quicker.
+	b.turns.wait(r.turn)
 
 	// Into the call, if not there already (one play at a time decides
 	// that, so two at once don't both join).

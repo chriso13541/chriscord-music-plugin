@@ -22,20 +22,13 @@ type Bot struct {
 	ui    *panelUI  // the Music panel (pluginui.go)
 	auto  *autoplay // what's been played, and autoplay (autoplay.go)
 
-	joinMu sync.Mutex // one "get into the right call" at a time (!play)
+	joinMu sync.Mutex // one "get into the right call" at a time (/music play)
+	turns  turns      // plays queue in the order asked for (commands.go)
 
 	mu       sync.Mutex
 	aloneT   *time.Timer             // running while the bot sits alone in its channel
 	noticeTo string                  // text channel for notices (where it was last told to play)
-	searches map[string]searchResult // each person's last !search, for "!play <number>"
-}
-
-// chatMessage is a chat message for the commands (already decrypted).
-type chatMessage struct {
-	BoardID  string
-	Username string
-	Text     string
-	msg      *chriscordbot.Message
+	searches map[string]searchResult // each person's last search, for "/music pick <number>"
 }
 
 func newBot(cfg config, c *chriscordbot.Bot, y *ytdlp) *Bot {
@@ -47,9 +40,6 @@ func newBot(cfg config, c *chriscordbot.Bot, y *ytdlp) *Bot {
 		if err := c.SetPicture(p.data, p.updatedAt); err != nil {
 			logf("pfp: %v", err)
 		}
-	}
-	c.OnMessage = func(m *chriscordbot.Message) {
-		b.onChat(chatMessage{BoardID: m.Channel, Username: m.Author, Text: m.Text, msg: m})
 	}
 	c.OnVoiceState = func(map[string][]string) {
 		b.checkAlone()
@@ -70,11 +60,6 @@ func newBot(cfg config, c *chriscordbot.Bot, y *ytdlp) *Bot {
 }
 
 func (b *Bot) username() string { return b.c.Username() }
-
-// waitTurn waits until every chat message that arrived before this one has
-// been handled (two quick !plays queue in the order they were sent,
-// whichever lookup finishes first).
-func (b *Bot) waitTurn(m chatMessage) { b.c.WaitTurn(m.msg) }
 
 func (b *Bot) othersIn(board string) []string    { return b.c.OthersIn(board) }
 func (b *Bot) voiceChannelOf(user string) string { return b.c.VoiceChannelOf(user) }
